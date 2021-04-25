@@ -24,7 +24,7 @@ int main()
     // Extracting path of individual image stored in a given directory
     std::vector<cv::String> images;
     // Path of the folder containing checkerboard images
-    std::string path = "C:/Users/Лейля/source/repos/OpenCV_Cam_Colibration/OpenCV_Cam_Colibration/x64/Release/*.jpg";//std::string path = "./images/*.jpg";
+    std::string path = "C:/Users/Лейля/source/repos/OpenCV_Cam_Colibration/OpenCV_Cam_Colibration/x64/Release/IMAGES/*.png";//std::string path = "./images/*.jpg";
     cv::glob(path, images);
     cv::Mat frame, gray;
     // vector to store the pixel coordinates of detected checker board corners
