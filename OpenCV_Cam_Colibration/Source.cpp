@@ -20,7 +20,7 @@ cv::Vec3f rotationMatrixToEulerAngles(cv::Mat& R);
 
 int main()
 {
-    int CHECKERBOARD[2]{ 6,9 };
+
     // Creating vector to store vectors of 3D points 
     std::vector<std::vector<cv::Point3f> > objpoints;
     // Creating vector to store vectors of 2D points 
