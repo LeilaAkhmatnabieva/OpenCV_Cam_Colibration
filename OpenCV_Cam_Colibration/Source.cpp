@@ -12,30 +12,44 @@ cv::Mat frame, gray;
 int maxCorners = 4;
 cv::RNG rng(12345);
 const char* source_window = "Image";
-std::vector<cv::Point2f> corners;
+std::vector<cv::Point2f> corners,sortcorners;
+
+// Creating vector to store vectors of 3D points 
+std::vector<std::vector<cv::Point3f> > objpoints;
+// Creating vector to store vectors of 2D points 
+std::vector<std::vector<cv::Point2f> > imgpoints;
+// Defining the world coordinates for 3D points
+std::vector<cv::Point3f> objp;
+
+//int main or where ever
+//assuming name of vector is myVector
 
 void goodFeaturesToTrack_Demo(int, void*);
 bool isRotationMatrix(cv::Mat& R);
 cv::Vec3f rotationMatrixToEulerAngles(cv::Mat& R);
+void SortCorners();
 
 int main()
 {
+    for(int k=0;k<2 ;k++)
+    { 
+        if (k == 1)
+        {
+            objp.push_back(cv::Point3f(0, 0, 0));
+            objp.push_back(cv::Point3f(0, 0.21, 0));
+            objp.push_back(cv::Point3f(0.297, 0.21, 0));// [cm]
+            objp.push_back(cv::Point3f(0.297, 0, 0));
+        }
+        else
+        {
+            objp.push_back(cv::Point3f(0.297, 0, 0));
+            objp.push_back(cv::Point3f(0, 0, 0));
+            objp.push_back(cv::Point3f(0, 0.21, 0));
+            objp.push_back(cv::Point3f(0.297, 0.21, 0));// [cm]
+        }
+      
 
-    // Creating vector to store vectors of 3D points 
-    std::vector<std::vector<cv::Point3f> > objpoints;
-    // Creating vector to store vectors of 2D points 
-    std::vector<std::vector<cv::Point2f> > imgpoints;
-    // Defining the world coordinates for 3D points
-    std::vector<cv::Point3f> objp;
-
-    objp.push_back(cv::Point3f(0, 0, 0));
-    objp.push_back(cv::Point3f(0, 0.21, 0));
-    objp.push_back(cv::Point3f(0.297, 0.21, 0));// [cm]
-    objp.push_back(cv::Point3f(0.297, 0, 0));
-
-    
-
-    cv::String image = "image2.jpeg";
+    cv::String image = "image.jpeg";
 
     /*std::cout << "Enter the path:";
     std::cin >> image;*/
@@ -53,8 +67,9 @@ int main()
     goodFeaturesToTrack_Demo(0, 0);
     cv::waitKey(0);
 
-    objpoints.push_back(objp);
-    imgpoints.push_back(corners);
+    objpoints.push_back(objp);    
+    imgpoints.push_back(sortcorners);
+    
 
     cv::destroyAllWindows();
     cv::Mat cameraMatrix, distCoeffs, R, T;
@@ -69,9 +84,9 @@ int main()
     cv::Rodrigues(R, R_mat);
     cv::Vec3f Angles = rotationMatrixToEulerAngles(R_mat);
 
-    //std::cout << "cameraMatrix : " << cameraMatrix << std::endl;
-    //std::cout << "distCoeffs : " << distCoeffs << std::endl;
-    //std::cout << "Rotation vector : " << R << std::endl;
+    std::cout << "cameraMatrix : " << cameraMatrix << std::endl;
+    std::cout << "distCoeffs : " << distCoeffs << std::endl;
+    std::cout << "Rotation vector : " << R << std::endl;
     std::cout << "Translation vector : " << T << std::endl;
     std::cout << "Angles: " << Angles << std::endl;
 
@@ -82,6 +97,7 @@ int main()
     {
         result << T << std::endl;
         result << Angles << std::endl;
+    }
     }
     return 0;
 }
@@ -109,9 +125,10 @@ void goodFeaturesToTrack_Demo(int, void*)
     cv::Size zeroZone = cv::Size(-1, -1);
     cv::TermCriteria criteria = cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 40, 0.001);
     cornerSubPix(gray, corners, winSize, zeroZone, criteria);
+    SortCorners();
     for (size_t i = 0; i < corners.size(); i++)
     {
-        std::cout << " -- Refined Corner [" << i << "]  (" << corners[i].x << "," << corners[i].y << ")" << std::endl;
+        std::cout << " -- Refined Corner [" << i << "]  (" << sortcorners[i].x << "," << sortcorners[i].y << ")" << std::endl;
     }
 }
 
@@ -144,4 +161,37 @@ cv::Vec3f rotationMatrixToEulerAngles(cv::Mat& R)
         z = 0;
     }
     return cv::Vec3f(x, y, z);
+}
+
+void SortCorners()
+{
+    int min=0,max=0;
+    
+
+    //find point with min y
+    for (int i=0; i<corners.size();i++)
+    {
+        if (corners[i].y < corners[min].y)
+        {
+            min = i;
+        }
+    }
+
+    //find point with max y
+    for (int i = 0; i < corners.size(); i++)
+    {
+        if (corners[i].y > corners[max].y)
+        {
+            max = i;
+        }
+    }
+    sortcorners.push_back(corners[min]);
+
+    for(int i = 0; i < corners.size(); i++)
+        if(i!=min&&i!=max)
+            sortcorners.push_back(corners[i]);
+
+    sortcorners.push_back(corners[max]);         
+    
+
 }
