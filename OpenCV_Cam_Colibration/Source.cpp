@@ -3,55 +3,39 @@
 #include <opencv2/calib3d/calib3d_c.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/core/mat.hpp>
 #include <stdio.h>
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <algorithm>
+
 
 cv::Mat frame, gray;
 int maxCorners = 4;
 cv::RNG rng(12345);
 const char* source_window = "Image";
-std::vector<cv::Point2f> corners,sortcorners;
+
 
 // Creating vector to store vectors of 3D points 
 std::vector<std::vector<cv::Point3f> > objpoints;
+std::vector<cv::Point3f> objp;
 // Creating vector to store vectors of 2D points 
 std::vector<std::vector<cv::Point2f> > imgpoints;
-// Defining the world coordinates for 3D points
-std::vector<cv::Point3f> objp;
-
-//int main or where ever
-//assuming name of vector is myVector
+std::vector<cv::Point2f> corners;
 
 void goodFeaturesToTrack_Demo(int, void*);
 bool isRotationMatrix(cv::Mat& R);
 cv::Vec3f rotationMatrixToEulerAngles(cv::Mat& R);
 void SortCorners();
 
+
 int main()
 {
-    for(int k=0;k<2 ;k++)
-    { 
-        if (k == 1)
-        {
-            objp.push_back(cv::Point3f(0, 0, 0));
-            objp.push_back(cv::Point3f(0, 0.21, 0));
-            objp.push_back(cv::Point3f(0.297, 0.21, 0));// [cm]
-            objp.push_back(cv::Point3f(0.297, 0, 0));
-        }
-        else
-        {
-            objp.push_back(cv::Point3f(0.297, 0, 0));
-            objp.push_back(cv::Point3f(0, 0, 0));
-            objp.push_back(cv::Point3f(0, 0.21, 0));
-            objp.push_back(cv::Point3f(0.297, 0.21, 0));// [cm]
-        }
-      
-
     cv::String image = "image.jpeg";
+    std::ofstream result;
 
-    /*std::cout << "Enter the path:";
+   /* std::cout << "Enter the path:";
     std::cin >> image;*/
 
     frame = cv::imread(image);
@@ -66,38 +50,91 @@ int main()
     // Finding corners
     goodFeaturesToTrack_Demo(0, 0);
     cv::waitKey(0);
-
-    objpoints.push_back(objp);    
-    imgpoints.push_back(sortcorners);
-    
-
     cv::destroyAllWindows();
-    cv::Mat cameraMatrix, distCoeffs, R, T;
-    /*
-    * Performing camera calibration by
-    * passing the value of known 3D points (objpoints)
-    * and corresponding pixel coordinates of the
-    * detected corners (imgpoints)
-    */
-    cv::calibrateCamera(objpoints, imgpoints, cv::Size(gray.rows, gray.cols), cameraMatrix, distCoeffs, R, T);
-    cv::Mat R_mat;//Rotation matrix   
-    cv::Rodrigues(R, R_mat);
-    cv::Vec3f Angles = rotationMatrixToEulerAngles(R_mat);
-
-    std::cout << "cameraMatrix : " << cameraMatrix << std::endl;
-    std::cout << "distCoeffs : " << distCoeffs << std::endl;
-    std::cout << "Rotation vector : " << R << std::endl;
-    std::cout << "Translation vector : " << T << std::endl;
-    std::cout << "Angles: " << Angles << std::endl;
+    imgpoints.push_back(corners);
 
 
-    std::ofstream result;
-    result.open("Result.txt");
-    if (result.is_open())
+    for (int k = 0; k < 2; k++)
     {
-        result << T << std::endl;
-        result << Angles << std::endl;
-    }
+        cv::Mat cameraMatrix, distCoeffs, R, T, RMat;
+        if (k == 0)
+        {
+            objp.push_back(cv::Point3f(0, 0, 0));
+            objp.push_back(cv::Point3f(0, 29.7, 0));
+            objp.push_back(cv::Point3f(21, 29.7, 0));
+            objp.push_back(cv::Point3f(21, 0, 0));
+        }
+        else
+        {
+            objp.clear();
+            objp.push_back(cv::Point3f(0, 0, 0));
+            objp.push_back(cv::Point3f(21, 0, 0));
+            objp.push_back(cv::Point3f(21, 29.7, 0));
+            objp.push_back(cv::Point3f(0, 29.7, 0));
+        }
+
+        objpoints.clear();
+        objpoints.push_back(objp);
+
+        for (int i = 0; i < 4; i++)
+        {
+            std::cout << "Object: " << objpoints[0][i].x << "," << objpoints[0][i].y << "," << objpoints[0][i].z << " = ";
+            std::cout << "Image: " << imgpoints[0][i].x << "," << imgpoints[0][i].y << std::endl;
+        }       
+
+        bool FindCol = true;
+        try {
+            /*
+       * Performing camera calibration by
+       * passing the value of known 3D points (objpoints)
+       * and corresponding pixel coordinates of the
+       * detected corners (imgpoints)
+       */
+            cv::calibrateCamera(objpoints, imgpoints, cv::Size(gray.cols, gray.rows), cameraMatrix, distCoeffs, R, T);
+        }
+        catch (const std::exception& ex) {
+            std::cout << ex.what() << std::endl;
+            FindCol = false;
+        }
+        if (FindCol)
+        {
+            cv::Rodrigues(R, RMat);//Find rotation matrix
+            cv::Vec3f Angles = rotationMatrixToEulerAngles(RMat);
+
+            cv::Mat_<double> CamCoord;
+            cv::Mat RInv = -RMat.inv();
+            CamCoord = T;
+            cv::Mat TTr = T.t();
+
+            for (int i = 0; i < 3; i++)
+            {
+                CamCoord.at<double>(i) = 0;
+                for (int j = 0; j < 3; j++)
+                {
+                    CamCoord.at<double>(i) += RInv.at<double>(i, j) * TTr.at<double>(j);
+                }
+            }
+            std::cout << "cameraMatrix : " << cameraMatrix << std::endl;
+            std::cout << "distCoeffs : " << distCoeffs << std::endl;
+            std::cout << "Rotation vector : " << R << std::endl;
+            std::cout << "Rotation matrix : " << RMat << std::endl;
+            std::cout << "Translation vector : " << T << std::endl;
+            std::cout << "Angles: " << Angles << std::endl;
+            std::cout << "Camera coordinates: " << CamCoord << std::endl;
+
+            if (result.is_open())
+            {
+                result << T << std::endl;
+                result << Angles << std::endl;
+            }
+            else
+            {
+                result.open("Result.txt");
+                result << T << std::endl;
+                result << Angles << std::endl;
+            }
+        }
+        std::cout << "****************" << std::endl << std::endl;
     }
     return 0;
 }
@@ -105,7 +142,6 @@ int main()
 void goodFeaturesToTrack_Demo(int, void*)
 {
     maxCorners = MAX(maxCorners, 1);
-
     double qualityLevel = 0.01;
     double minDistance = 10;
     int blockSize = 3, gradientSize = 3;
@@ -113,9 +149,9 @@ void goodFeaturesToTrack_Demo(int, void*)
     double k = 0.04;
     cv::Mat copy = frame.clone();
     goodFeaturesToTrack(gray, corners, maxCorners, qualityLevel, minDistance, cv::Mat(), blockSize, gradientSize, useHarrisDetector, k);
-    std::cout << "** Number of corners detected: " << corners.size() << std::endl;
+    //std::cout << "** Number of corners detected: " << corners.size() << std::endl;
     int radius = 4;
-    for (size_t i = 0; i < corners.size(); i++)//рисуем точки на изображении
+    for (size_t i = 0; i < corners.size(); i++)
     {
         cv::circle(copy, corners[i], radius, cv::Scalar(rng.uniform(0, 255), rng.uniform(0, 256), rng.uniform(0, 256)), cv::FILLED);
     }
@@ -128,7 +164,7 @@ void goodFeaturesToTrack_Demo(int, void*)
     SortCorners();
     for (size_t i = 0; i < corners.size(); i++)
     {
-        std::cout << " -- Refined Corner [" << i << "]  (" << sortcorners[i].x << "," << sortcorners[i].y << ")" << std::endl;
+        std::cout << " -- Refined Corner [" << i << "]  (" << corners[i].x << "," << corners[i].y << ")" << std::endl;
     }
 }
 
@@ -165,33 +201,25 @@ cv::Vec3f rotationMatrixToEulerAngles(cv::Mat& R)
 
 void SortCorners()
 {
-    int min=0,max=0;
-    
-
+    cv::Point2f temp[3];
+    int MinY = 0;
     //find point with min y
-    for (int i=0; i<corners.size();i++)
-    {
-        if (corners[i].y < corners[min].y)
-        {
-            min = i;
+    for (int i = 0; i < corners.size(); i++) {
+        if (corners[i].y < corners[MinY].y) {
+            MinY = i;
         }
     }
 
-    //find point with max y
-    for (int i = 0; i < corners.size(); i++)
-    {
-        if (corners[i].y > corners[max].y)
-        {
-            max = i;
-        }
-    }
-    sortcorners.push_back(corners[min]);
+    cv::Point2f origin;
+    origin = corners[MinY];
 
-    for(int i = 0; i < corners.size(); i++)
-        if(i!=min&&i!=max)
-            sortcorners.push_back(corners[i]);
-
-    sortcorners.push_back(corners[max]);         
-    
-
+    sort(corners.begin(), corners.end(), [&origin](cv::Point2f p1, cv::Point2f p2) {
+        cv::Point2f origin1, origin2;
+        origin1.x = p1.x - origin.x;
+        origin1.y = p1.y - origin.y;
+        origin2.x = p2.x - origin.x;
+        origin2.y = p2.y - origin.y;
+        float area = origin1.x * origin2.y - origin1.y * origin2.x;
+        return area > 0;
+        });
 }
