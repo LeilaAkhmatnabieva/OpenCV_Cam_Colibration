@@ -101,17 +101,15 @@ int main()
             cv::Rodrigues(R, RMat);//Find rotation matrix
             cv::Vec3f Angles = rotationMatrixToEulerAngles(RMat);
 
-            cv::Mat_<double> CamCoord;
+            double CamCoord[3] = { 0,0,0 };
             cv::Mat RInv = -RMat.inv();
-            CamCoord = T;
             cv::Mat TTr = T.t();
 
             for (int i = 0; i < 3; i++)
-            {
-                CamCoord.at<double>(i) = 0;
+            {                
                 for (int j = 0; j < 3; j++)
                 {
-                    CamCoord.at<double>(i) += RInv.at<double>(i, j) * TTr.at<double>(j);
+                    CamCoord[i] = CamCoord[i]+ RInv.at<double>(i, j) * TTr.at<double>(j);                    
                 }
             }
             std::cout << "cameraMatrix : " << cameraMatrix << std::endl;
@@ -120,17 +118,28 @@ int main()
             std::cout << "Rotation matrix : " << RMat << std::endl;
             std::cout << "Translation vector : " << T << std::endl;
             std::cout << "Angles: " << Angles << std::endl;
-            std::cout << "Camera coordinates: " << CamCoord << std::endl;
+            for (int i = 0; i < 3; i++)
+            {
+                std::cout << "Camera coordinates: " << CamCoord[i] << std::endl;
+            }            
 
             if (result.is_open())
             {
-                result << T << std::endl;
+                for (int i = 0; i < 3; i++)
+                {
+                    result << CamCoord[i] << " ";
+                }
+                result << std::endl;
                 result << Angles << std::endl;
             }
             else
             {
                 result.open("Result.txt");
-                result << T << std::endl;
+                for (int i = 0; i < 3; i++)
+                {
+                    result << CamCoord[i] << " ";
+                }
+                result << std::endl;
                 result << Angles << std::endl;
             }
         }
@@ -160,12 +169,12 @@ void goodFeaturesToTrack_Demo(int, void*)
     cv::Size winSize = cv::Size(5, 5);
     cv::Size zeroZone = cv::Size(-1, -1);
     cv::TermCriteria criteria = cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 40, 0.001);
-    cornerSubPix(gray, corners, winSize, zeroZone, criteria);
-    SortCorners();
+    cornerSubPix(gray, corners, winSize, zeroZone, criteria);    
     for (size_t i = 0; i < corners.size(); i++)
     {
         std::cout << " -- Refined Corner [" << i << "]  (" << corners[i].x << "," << corners[i].y << ")" << std::endl;
     }
+    SortCorners();
 }
 
 // Checks if a matrix is a valid rotation matrix.
@@ -202,16 +211,27 @@ cv::Vec3f rotationMatrixToEulerAngles(cv::Mat& R)
 void SortCorners()
 {
     cv::Point2f temp[3];
-    int MinY = 0;
+    int MinY, MaxY, MinX, MaxX = 0;
     //find point with min y
     for (int i = 0; i < corners.size(); i++) {
         if (corners[i].y < corners[MinY].y) {
             MinY = i;
         }
+        if (corners[i].x < corners[MinX].x) {
+            MinX = i;
+        }
+        if (corners[i].y > corners[MaxY].y) {
+            MaxY = i;
+        }
+        if (corners[i].x > corners[MaxX].x) {
+            MaxX = i;
+        }
+
     }
 
     cv::Point2f origin;
-    origin = corners[MinY];
+    origin.x = (corners[MaxX].x + corners[MinX].x) / 2;
+    origin.y = (corners[MaxY].y + corners[MinY].y) / 2;
 
     sort(corners.begin(), corners.end(), [&origin](cv::Point2f p1, cv::Point2f p2) {
         cv::Point2f origin1, origin2;
