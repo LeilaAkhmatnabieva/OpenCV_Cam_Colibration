@@ -209,37 +209,16 @@ cv::Vec3f rotationMatrixToEulerAngles(cv::Mat& R)
 }
 
 void SortCorners()
-{
-    cv::Point2f temp[3];
-    int MinY, MaxY, MinX, MaxX = 0;
-    //find point with min y
-    for (int i = 0; i < corners.size(); i++) {
-        if (corners[i].y < corners[MinY].y) {
-            MinY = i;
-        }
-        if (corners[i].x < corners[MinX].x) {
-            MinX = i;
-        }
-        if (corners[i].y > corners[MaxY].y) {
-            MaxY = i;
-        }
-        if (corners[i].x > corners[MaxX].x) {
-            MaxX = i;
-        }
-
-    }
-
-    cv::Point2f origin;
-    origin.x = (corners[MaxX].x + corners[MinX].x) / 2;
-    origin.y = (corners[MaxY].y + corners[MinY].y) / 2;
-
-    sort(corners.begin(), corners.end(), [&origin](cv::Point2f p1, cv::Point2f p2) {
+{         
+    cv::Point2f origin = corners[corners.size() - 1];
+    
+    sort(corners.begin(), corners.end()--, [&origin](cv::Point2f p1, cv::Point2f p2) {
         cv::Point2f origin1, origin2;
         origin1.x = p1.x - origin.x;
         origin1.y = p1.y - origin.y;
         origin2.x = p2.x - origin.x;
         origin2.y = p2.y - origin.y;
         float area = origin1.x * origin2.y - origin1.y * origin2.x;
-        return area > 0;
+        return (area > 0);
         });
 }
